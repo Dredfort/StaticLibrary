@@ -87,6 +87,7 @@ namespace SingleLaunch
 		hostName = szHostName;
 
 		hMutex = CreateMutex(NULL, FALSE, NULL);
+
 		// make thread.
 		std::thread clientThr(ThteadClientLis, client_sock, out_addr2, portClient);
 		clientThr.detach();

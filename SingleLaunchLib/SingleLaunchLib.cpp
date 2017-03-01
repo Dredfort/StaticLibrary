@@ -194,12 +194,14 @@ namespace SingleLaunch
 			}
 			else
 			{
+				std::string incomingMsg(buff);
+
 				if (serverBind == SOCKET_ERROR)
 				{
 					cout << "\n++++++++++++++++++++++++++" << endl;
 					cout << "C:> incoming: " << endl;
 					cout << "C:> port " << ntohs(client_in_addr2.sin_port) << endl;
-					cout << "C:> message: " << &buff[0] << endl;
+					cout << "C:> message: " << incomingMsg/*&buff[0]*/ << endl;
 					cout << "++++++++++++++++++++++++++" << endl;
 				}
 
@@ -369,14 +371,14 @@ namespace SingleLaunch
 					}
 					buff[bsize] = '\0';
 
-					std::string str(buff);
+					std::string incomingMsg(buff);
 					std::string localport = std::to_string(ntohs(client_in_addr.sin_port));
 
 					std::string twinServer("twinsfind");
 					std::string twinClose("twinsclose");
 
-					size_t findServerTwins = str.find(twinServer);	
-					size_t findServerClose = str.find(twinClose);
+					size_t findServerTwins = incomingMsg.find(twinServer);	
+					size_t findServerClose = incomingMsg.find(twinClose);
 
 					int serverPortMatch = std::strcmp(localport.c_str(), std::to_string(portServer).c_str());
 
@@ -446,19 +448,19 @@ namespace SingleLaunch
 
 
 						std::string matchedStr("closed");
-						size_t position = str.find(matchedStr);
+						size_t position = incomingMsg.find(matchedStr);
 						if (position != string::npos)
 						{
 							cout << "\n-----------------" << endl;
 							cout << "S:>net client exit" << endl;
 							cout << "------------------" << endl;
 
-							size_t result = str.find("_");
+							size_t result = incomingMsg.find("_");
 
 							if (result != string::npos)
 							{
 								std::string check;
-								check.append(str.substr(result + 1));
+								check.append(incomingMsg.substr(result + 1));
 
 								size_t elemId = 0;
 								for (vector<string>::iterator it = netClients.begin(); it != netClients.end(); ++it)

@@ -298,21 +298,31 @@ namespace SingleLaunch
 		cout << "S:==> ServerCreated! <== \n S:>Send ping request to all clients." << endl;
 		cout << "++++++++++++++++++++++++++++++++++++++" << endl;
 
-		char msg[20] = "ping_clients";
+		char msgpingClients[20] = "ping_clients";
 		sockaddr_in send_addr;
 		send_addr.sin_family = AF_INET;
 		send_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-		send_addr.sin_addr.s_addr = inet_addr(SERVERADDR);
+		send_addr.sin_addr.s_addr = inet_addr(SERVERADDR);		
 
-		//send_addr.sin_port = htons(portClient);
+		// To detect duplicate of server.
+		char msgpingSrv[20] = "twinsfind";
+		send_addr.sin_port = htons(port);
+		sendto(server_sock, &msgpingSrv[0], sizeof(msgpingSrv)
+			, 0, (sockaddr*)&send_addr, sizeof(send_addr));
+
+		Sleep(1000);
 
 		cout << "S:==> start picking clients."<< endl;
 		for (auto i = 49152; i <= 65535; i++)
 		{
 			send_addr.sin_port = htons(i);
 
-			sendto(sock/*server_sock*/, &msg[0], sizeof(msg), 0, (sockaddr*)&send_addr, sizeof(send_addr));
+			sendto(sock, &msgpingClients[0], sizeof(msgpingClients)
+				, 0, (sockaddr*)&send_addr, sizeof(send_addr));
 		}
+
+
+
 		cout << "\nS:> end picking clients." << endl;
 		cout << "\nS:> Start lisent port." << endl;
 		FOREVER()
@@ -359,6 +369,45 @@ namespace SingleLaunch
 					}
 					buff[bsize] = '\0';
 
+					std::string str(buff);
+					std::string localport = std::to_string(ntohs(client_in_addr.sin_port));
+
+					std::string twinServer("twinsfind");
+					std::string twinClose("twinsclose");
+
+					size_t findServerTwins = str.find(twinServer);	
+					size_t findServerClose = str.find(twinClose);
+
+					int serverPortMatch = std::strcmp(localport.c_str(), std::to_string(portServer).c_str());
+
+					if (findServerTwins != std::string::npos && senderName != hostName)
+					{
+						cout << "\n----------------------------------" << endl;
+						cout << "S:>Server in net detected." << endl;
+						cout << "S:>Sending close message." << endl;
+						cout << "-----------------------------------" << endl;
+
+						const size_t len = twinClose.size();
+						char const *pchar = twinClose.c_str();
+
+						sendto(sock, pchar, len, 0,
+							(sockaddr*)&client_in_addr
+							, sizeof(client_in_addr));
+					}
+					else if (findServerClose != std::string::npos && senderName != hostName)
+					{
+						cout << "\n----------------------------------" << endl;
+						cout << "S:>Server in net detected." << endl;
+						cout << "S:>Start closing server and thread." << endl;
+						cout << "-----------------------------------" << endl;
+
+						//TODO: close server and thread.
+						closesocket(server_sock);
+						ReleaseMutex(hMutex);
+						ExitThread(0);
+					}
+
+
 					//// NET PORTS.
 					if (senderName != hostName &&
 						match == false)
@@ -388,21 +437,21 @@ namespace SingleLaunch
 								{
 									std::string s = std::to_string(std::stoi(*it));
 									s = s + "\n";
+									const size_t len = s.size();
 									char const *pchar = s.c_str();
-									sendto(sock, &pchar[0], sizeof(pchar), 0, (sockaddr *)&client_in_addr, sizeof(client_in_addr));
+									sendto(sock, &pchar[0], len/*sizeof(pchar)*/, 0, (sockaddr *)&client_in_addr, sizeof(client_in_addr));
 								}
 							}
 						}
 
 
 						std::string matchedStr("closed");
-						std::string str(buff);
 						size_t position = str.find(matchedStr);
 						if (position != string::npos)
 						{
-							cout << "\n---------------" << endl;
-							cout << "net client exit" << endl;
-							cout << "---------------" << endl;
+							cout << "\n-----------------" << endl;
+							cout << "S:>net client exit" << endl;
+							cout << "------------------" << endl;
 
 							size_t result = str.find("_");
 
@@ -431,8 +480,7 @@ namespace SingleLaunch
 					}
 	//// LOCAL PORTS.
 					else
-					{
-						std::string localport = std::to_string(ntohs(client_in_addr.sin_port));
+					{				
 
 						for (vector<string>::iterator it = localClients.begin(); it != localClients.end(); ++it)
 						{

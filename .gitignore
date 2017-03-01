@@ -77,3 +77,12 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+ipch/SINGLELAUNCHLIB-f9d09fcf/SINGLELAUNCHLIB-cc4b36e0.ipch
+ipch/SINGLELAUNCHLIB-7ea0c1b2/SINGLELAUNCHLIB-cc4b36e0.ipch
+*.tlog
+.vs/StaticLibrary/v14/.suo
+StaticLibrary.VC.opendb
+.vs/StaticLibrary/v14/.suo
+*.suo
+SingleLaunchLib/Debug/SingleLaunchLib.Build.CppClean.log
+SingleLaunchLib/Debug/SingleLaunchLib.log

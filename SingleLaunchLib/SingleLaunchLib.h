@@ -13,8 +13,24 @@ namespace SingleLaunch
 	class SingleLaunch_Base
 	{
 	public:
-		SingleLaunch_Base(unsigned int maxCopies);
 
+		 /* 
+		 * Constructor
+		 @note: maxCopiesLocal - maximum quantity of clients launched on local computer.
+		 @note: maxCopiesNet - maximum quantity of clients launched on net.
+		 */
+		SingleLaunch_Base(unsigned int maxCopiesLocal, unsigned int maxCopiesNet);
+
+
+		static void EndSession();
+
+		virtual	~SingleLaunch_Base();
+
+	protected:
+		 int MaxCopiesLocal;
+		 int MaxCopiesNet;
+
+	private:
 		static sockaddr_in InitWinSocket(SOCKET & out_socket, int porttoConnect);
 		static int mBindSocket(SOCKET sock, sockaddr_in addr, const int port);
 
@@ -22,25 +38,7 @@ namespace SingleLaunch
 
 		static void ThteadServerLis(SOCKET sock, sockaddr_in addr, const int portID);
 		static int CountClients();
-
-		static void EndSession();
-
-		virtual	~SingleLaunch_Base();
-	protected:
-
-		int MaxCopies;
-		
-		/*std::vector<string> netClients;
-		std::vector<string> localClients;
-		SOCKET my_sock;
-		sockaddr_in in_addr;
-	
-		HANDLE mut;
-		HANDLE myHandle;
-		char buff[2048];
-		int counter = 1;
-		string hostName;
-		string senderName;*/
+		SingleLaunch_Base();
 	};
 }
 

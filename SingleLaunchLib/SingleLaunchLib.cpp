@@ -21,6 +21,9 @@ static const int portClient = 5250;
 
 std::string pingString("ping");
 
+std::string SerserverIpAddr;
+std::string ServerPortAddr;
+
 unsigned int CopiesTreshold;
 
 #define FOREVER() for(;;)
@@ -206,6 +209,7 @@ namespace SingleLaunch
 			{
 				std::string incomingMsg(buff);
 
+
 				if (serverBind == SOCKET_ERROR)
 				{
 					cout << "\n++++++++++++++++++++++++++" << endl;
@@ -221,20 +225,28 @@ namespace SingleLaunch
 				std::string pingClientsStr("ping_clients");
 				std::string closeCommandStr("close_command");
 				std::string closeStr("closed_server");
+				std::string bindIpSrt("bindip");
 
 				size_t	findClose = buffStr.find(closeStr);
 				size_t findCloseCommand = buffStr.find(closeCommandStr);
 				size_t findPingClients = buffStr.find(pingClientsStr);
+				size_t findBindIp = buffStr.find(bindIpSrt);
 
 				std::string qwe = std::to_string(portClient);
 
 				size_t pos = buffStr.find(qwe);
 
+				if (findBindIp != string::npos)
+				{
+					SerserverIpAddr = inet_ntoa(client_in_addr2.sin_addr);
+					ServerPortAddr = std::to_string(ntohs(client_in_addr2.sin_port));
+				}
 
 				if (findPingClients != string::npos)
 				{
 					cout << "\n-------------------------------------" << endl;
 					cout << "C:==> Send `ping` response to server." << endl;
+					cout << "C:> ip:[" << SerserverIpAddr << "]" << " port:[" << ServerPortAddr << "]" << endl;
 					cout << "-------------------------------------" << endl;
 					sendto(sock, pingString.c_str(), pingString.length(), 0, (sockaddr*)&send_addr, sizeof(send_addr));
 				}
@@ -293,6 +305,7 @@ namespace SingleLaunch
 						cout << "\nC:==> fail create server thread.." << endl;
 						cout << "-----------------------------------" << endl;
 					}
+
 				}
 				else if (pos == string::npos /*&& localPort.length() == 0*/)
 				{
@@ -366,21 +379,11 @@ namespace SingleLaunch
 					hostent = gethostbyaddr((char *)&client_in_addr.sin_addr, 4, AF_INET);
 
 					IP = inet_ntoa(client_in_addr.sin_addr);
-
-					string iplocal = inet_ntoa(addr.sin_addr);
+					
 
 					if (hostent != nullptr)
 						senderName = hostent->h_name;
 
-					bool match = false;
-					for (vector<string>::iterator it = netClients.begin(); it != netClients.end(); ++it)
-					{
-						if (*it == IP)
-						{
-							match = true;
-							break;
-						}
-					}
 					buff[bsize] = '\0';
 
 					std::string incomingMsg(buff);
@@ -398,6 +401,27 @@ namespace SingleLaunch
 
 					int serverPortMatch = std::strcmp(extPort.c_str(), std::to_string(portServer).c_str());
 
+
+					bool matchNet = false;
+					for (vector<string>::iterator it = netClients.begin(); it != netClients.end(); ++it)
+					{
+						if (*it == IP)
+						{
+							matchNet = true;
+							break;
+						}
+					}
+					bool matchClient = false;
+					for (vector<string>::iterator it = localClients.begin(); it != localClients.end(); ++it)
+					{
+						if (*it == extPort)
+						{
+							matchClient = true;
+							break;
+						}
+					}
+
+
 					if (findServerTwins != std::string::npos && senderName != hostName)
 					{
 						cout << "\n----------------------------------" << endl;
@@ -411,6 +435,37 @@ namespace SingleLaunch
 						sendto(sock, pchar, len, 0,
 							(sockaddr*)&client_in_addr
 							, sizeof(client_in_addr));
+
+
+
+						cout << "\nS:> Refresh clients" << endl;
+						// refresh clients
+						char msgpingClients[20] = "ping_clients";
+						sockaddr_in send_addr;
+						send_addr.sin_family = AF_INET;
+						send_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+						send_addr.sin_addr.s_addr = inet_addr(SERVERADDR);
+
+						// bind ip.
+						addr.sin_port = client_in_addr.sin_port;
+						addr.sin_addr.s_addr = inet_addr(SERVERADDR);
+						std::string stringBindIp = "_bindip";
+						const size_t lenstringBindIp = stringBindIp.size();
+						const char *pcharIP = stringBindIp.c_str();
+
+						for (auto i = 49152; i <= 65535; i++)
+						{
+							send_addr.sin_port = htons(i);
+
+							sendto(sock, &msgpingClients[0], sizeof(msgpingClients)
+								, 0, (sockaddr*)&send_addr, sizeof(send_addr));
+						
+							sendto(sock, pcharIP, lenstringBindIp, 0,
+							(sockaddr*)&client_in_addr,
+							sizeof(client_in_addr));
+						}
+
+
 					}
 					else if (findServerClose != std::string::npos && senderName != hostName)
 					{
@@ -420,6 +475,7 @@ namespace SingleLaunch
 						cout << "-----------------------------------" << endl;
 
 						//TODO: close server and thread.
+						serverBind = -1;
 						closesocket(server_sock);
 						ReleaseMutex(hMutex);
 						ExitThread(0);
@@ -427,8 +483,8 @@ namespace SingleLaunch
 
 
 					//// NET PORTS.
-					if (senderName != hostName &&
-						match == false)
+					if (senderName != hostName && // TODO:: объеденить закрытие локальных и серевых клиетнов.findClosed
+						(matchNet == false))
 					{
 
 						if (findClosed != string::npos)
@@ -461,21 +517,21 @@ namespace SingleLaunch
 							else
 								cout << "fail to remove net player from arr!" << endl;
 
-							/*char msgpingClients[20] = "ping_clients";
+							cout << "\nS:> Refresh clients" << endl;
+
+							// refresh clients
+							char msgpingClients[20] = "ping_clients";
 							sockaddr_in send_addr;
 							send_addr.sin_family = AF_INET;
 							send_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 							send_addr.sin_addr.s_addr = inet_addr(SERVERADDR);
-							*/
-							//cout << "\nS:> Refresh clients" << endl;
-							//// refresh clients
-							//for (auto i = 49152; i <= 65535; i++)
-							//{
-							//	send_addr.sin_port = htons(i);
+							for (auto i = 49152; i <= 65535; i++)
+							{
+								send_addr.sin_port = htons(i);
 
-							//	sendto(sock, &msgpingClients[0], sizeof(msgpingClients)
-							//		, 0, (sockaddr*)&send_addr, sizeof(send_addr));
-							//}
+								sendto(sock, &msgpingClients[0], sizeof(msgpingClients)
+									, 0, (sockaddr*)&send_addr, sizeof(send_addr));
+							}
 						}
 						else if (findPingStr != std::string::npos)
 						{
@@ -505,9 +561,21 @@ namespace SingleLaunch
 								netClients.push_back(IP);
 
 								cout << "\n==========================" << endl;
-								cout << "S:==>local client launched" << endl;
+								cout << "S:==>Net client launched" << endl;
 								cout << "S:> ip " << IP << " host:" << senderName << endl;
 								cout << "==========================" << endl;
+
+								// bind ip.
+								addr.sin_port = client_in_addr.sin_port;
+								addr.sin_addr.s_addr = inet_addr(SERVERADDR);
+
+								std::string stringBindIp = "_bindip";
+								const size_t len = stringBindIp.size();
+								const char *pcharIP = stringBindIp.c_str();
+
+								sendto(sock, pcharIP, len, 0,
+									(sockaddr*)&client_in_addr,
+									sizeof(client_in_addr));
 
 								for (vector<string>::iterator it = netClients.begin(); it != netClients.end(); ++it)
 								{
@@ -539,17 +607,7 @@ namespace SingleLaunch
 					}
 					//// LOCAL PORTS.
 					else
-					{
-
-						for (vector<string>::iterator it = localClients.begin(); it != localClients.end(); ++it)
-						{
-							if (*it == extPort)
-							{
-								match = true;
-								break;
-							}
-						}
-
+					{	
 						if (findClosed != string::npos)
 						{
 							cout << "\n-----------------------" << endl;
@@ -601,7 +659,7 @@ namespace SingleLaunch
 
 							CountClients();
 						}
-						else if (match == false && findPingStr != string::npos)// (match == false && std::strcmp(buff, "ping") == 0)
+						else if (matchClient == false && findPingStr != string::npos)// (match == false && std::strcmp(buff, "ping") == 0)
 						{
 							//counter++;
 
@@ -632,6 +690,19 @@ namespace SingleLaunch
 								cout << "S:==>local client launched" << endl;
 								cout << "S:> port " << ntohs(client_in_addr.sin_port) << endl;
 								cout << "==========================" << endl;
+
+								// bind ip.
+								addr.sin_port = client_in_addr.sin_port;
+								addr.sin_addr.s_addr = inet_addr(SERVERADDR);
+
+								std::string stringBindIp = "_bindip";								
+								const size_t len = stringBindIp.size();
+								const char *pcharIP = stringBindIp.c_str();
+
+								sendto(sock, pcharIP, len, 0,
+									(sockaddr*)&client_in_addr,
+									sizeof(client_in_addr));
+
 
 								// send for all locals.
 								for (vector<string>::iterator it = localClients.begin(); it != localClients.end(); ++it)
@@ -682,12 +753,22 @@ namespace SingleLaunch
 
 			sockaddr_in send_addr;
 			send_addr.sin_family = AF_INET;
-			send_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-			send_addr.sin_addr.s_addr = inet_addr(SERVERADDR);
-			send_addr.sin_port = htons(portServer);
+
+			if (ServerPortAddr.length() > 0)
+			{
+				send_addr.sin_addr.s_addr = inet_addr(SerserverIpAddr.c_str());
+				int ip = std::stoi(ServerPortAddr);
+				send_addr.sin_port = htons(ip);
+			}
+			else
+			{
+				send_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+				send_addr.sin_addr.s_addr = inet_addr(SERVERADDR);
+				send_addr.sin_port = htons(portServer);
+			}
 
 			sendto(client_sock, &pchar[0], len
-				, 0, (sockaddr*)&send_addr, sizeof(send_addr));
+				, 0, (sockaddr*)&send_addr, sizeof(send_addr));			
 		}
 		else // server closed.
 		{

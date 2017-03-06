@@ -35,8 +35,10 @@ namespace SingleLaunch
 		static int mBindSocket(SOCKET sock, sockaddr_in addr, const int port);
 
 		static void ThteadClientLis(SOCKET sock, sockaddr_in addr, const int portID);
+		static void ThreadPingMsg(SOCKET sock, sockaddr_in addr, const int portID);
 
 		static void ThteadServerLis(SOCKET sock, sockaddr_in addr, const int portID);
+
 		static int CountClients();
 		SingleLaunch_Base();
 	};

@@ -116,6 +116,9 @@ namespace SingleLaunch
 			else
 				closesocket(server_sock);
 		}
+
+		/*std::thread pingThread(ThreadPingMsg, client_sock, out_addr2, portClient);
+		pingThread.detach();*/
 	}
 
 	sockaddr_in SingleLaunch_Base::InitWinSocket(SOCKET & out_socket, int porttoConnect)
@@ -165,6 +168,23 @@ namespace SingleLaunch
 		return i;
 	}
 
+	void SingleLaunch_Base::ThreadPingMsg(SOCKET sock, sockaddr_in addr, const int portID)
+	{
+		FOREVER()
+		{
+			Sleep(5000);
+
+			char msg[20] = "__ping";
+			sockaddr_in send_addr;
+			send_addr.sin_family = AF_INET;
+			send_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+			send_addr.sin_port = htons(portServer);
+			send_addr.sin_addr.s_addr = inet_addr(SERVERADDR);
+
+			sendto(sock, &msg[0], sizeof(msg), 0, (sockaddr*)&send_addr, sizeof(send_addr));
+		}
+	}
+
 	void SingleLaunch::SingleLaunch_Base::ThteadClientLis(SOCKET sock, sockaddr_in addr, const int portID)
 	{
 		WaitForSingleObject(hMutex, INFINITE);
@@ -199,7 +219,7 @@ namespace SingleLaunch
 			int bsize = recvfrom(sock, &buff[0], buffSize - 1, 0, (sockaddr *)&client_in_addr2, &client_addr_size);
 			if (bsize == SOCKET_ERROR)
 			{
-				printf("recvfrom() error: %d\n", WSAGetLastError());
+				printf("\nC:> recvfrom() error: %d\n", WSAGetLastError());
 
 				closesocket(sock);
 				ReleaseMutex(hMutex);
@@ -366,7 +386,7 @@ namespace SingleLaunch
 
 			if (bsize == SOCKET_ERROR)
 			{
-				printf("recvfrom() error: %d\n", WSAGetLastError());
+				printf("\nS:>recvfrom() error: %d\n", WSAGetLastError());
 				closesocket(sock);
 				ReleaseMutex(hMutex);
 				ExitThread(0);
@@ -411,16 +431,97 @@ namespace SingleLaunch
 							break;
 						}
 					}
-					bool matchClient = false;
+					bool matchLocal = false;
 					for (vector<string>::iterator it = localClients.begin(); it != localClients.end(); ++it)
 					{
 						if (*it == extPort)
 						{
-							matchClient = true;
+							matchLocal = true;
 							break;
 						}
 					}
 
+					if (findClosed != string::npos)
+						{
+							if (matchNet)
+							{
+								cout << "\n-----------------" << endl;
+								cout << "S:>net client exit" << endl;
+								cout << "------------------" << endl;
+
+								size_t result = incomingMsg.find("_");
+
+								if (result != string::npos)
+								{
+									std::string check;
+									check.append(incomingMsg.substr(result + 1));
+
+									size_t elemId = 0;
+									for (vector<string>::iterator it = netClients.begin(); it != netClients.end(); ++it)
+									{
+										if (*it == IP)
+										{
+											break;
+										}
+										elemId++;
+									}
+									if (elemId < netClients.size())
+									{
+										netClients.erase(netClients.begin() + elemId);
+										cout << "S:> Net client removed from the list!" << endl;
+									}
+								}
+								else
+									cout << "fail to remove net player from arr!" << endl;
+							}
+							else if (matchLocal)
+							{
+								cout << "\n-----------------------" << endl;
+								cout << "S:==> local client exit" << endl;
+								cout << "S:> port " << ntohs(client_in_addr.sin_port) << endl;
+								cout << "-----------------------" << endl;
+
+								//  remove target client.
+								size_t result = incomingMsg.find("_");
+								if (result != string::npos)
+								{
+									std::string check;
+									check.append(incomingMsg.substr(result + 1));
+
+									size_t elemId = 0;
+									for (vector<string>::iterator it = localClients.begin(); it != localClients.end(); ++it)
+									{
+										if (*it == extPort)
+										{
+											break;
+										}
+										elemId++;
+									}
+									if (elemId < localClients.size())
+									{
+										localClients.erase(localClients.begin() + elemId); // check the index.
+										cout << "S:> Local client removed from the list!" << endl;
+									}
+								}
+								else
+									cout << "S:>fail to remove local player from list!" << endl;
+							}
+
+							cout << "\nS:> Refresh clients" << endl;
+							// refresh clients
+							char msgpingClients[20] = "ping_clients";
+							sockaddr_in send_addr;
+							send_addr.sin_family = AF_INET;
+							send_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+							send_addr.sin_addr.s_addr = inet_addr(SERVERADDR);
+							for (auto i = 49152; i <= 65535; i++)
+							{
+								send_addr.sin_port = htons(i);
+
+								sendto(sock, &msgpingClients[0], sizeof(msgpingClients)
+									, 0, (sockaddr*)&send_addr, sizeof(send_addr));
+							}
+						}
 
 					if (findServerTwins != std::string::npos && senderName != hostName)
 					{
@@ -487,53 +588,7 @@ namespace SingleLaunch
 						(matchNet == false))
 					{
 
-						if (findClosed != string::npos)
-						{
-							cout << "\n-----------------" << endl;
-							cout << "S:>net client exit" << endl;
-							cout << "------------------" << endl;
-
-							size_t result = incomingMsg.find("_");
-
-							if (result != string::npos)
-							{
-								std::string check;
-								check.append(incomingMsg.substr(result + 1));
-
-								size_t elemId = 0;
-								for (vector<string>::iterator it = netClients.begin(); it != netClients.end(); ++it)
-								{
-									if (*it == IP)
-									{
-										break;
-									}
-									elemId++;
-								}
-								if (elemId < netClients.size())
-								{
-									netClients.erase(netClients.begin() + elemId);
-								}
-							}
-							else
-								cout << "fail to remove net player from arr!" << endl;
-
-							cout << "\nS:> Refresh clients" << endl;
-
-							// refresh clients
-							char msgpingClients[20] = "ping_clients";
-							sockaddr_in send_addr;
-							send_addr.sin_family = AF_INET;
-							send_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-							send_addr.sin_addr.s_addr = inet_addr(SERVERADDR);
-							for (auto i = 49152; i <= 65535; i++)
-							{
-								send_addr.sin_port = htons(i);
-
-								sendto(sock, &msgpingClients[0], sizeof(msgpingClients)
-									, 0, (sockaddr*)&send_addr, sizeof(send_addr));
-							}
-						}
-						else if (findPingStr != std::string::npos)
+						if (findPingStr != std::string::npos)
 						{
 
 							// Send message to the client to close it.
@@ -607,59 +662,8 @@ namespace SingleLaunch
 					}
 					//// LOCAL PORTS.
 					else
-					{	
-						if (findClosed != string::npos)
-						{
-							cout << "\n-----------------------" << endl;
-							cout << "S:==> local client exit" << endl;
-							cout << "S:> port " << ntohs(client_in_addr.sin_port) << endl;
-							cout << "-----------------------" << endl;
-
-							//counter--;
-
-							//  remove target client.
-							size_t result = incomingMsg.find("_");
-							if (result != string::npos)
-							{
-								std::string check;
-								check.append(incomingMsg.substr(result + 1));
-
-								size_t elemId = 0;
-								for (vector<string>::iterator it = localClients.begin(); it != localClients.end(); ++it)
-								{
-									if (*it == extPort)
-									{
-										break;
-									}
-									elemId++;
-								}
-								if (elemId < localClients.size())
-								{
-									localClients.erase(localClients.begin() + elemId); // check the index.
-									cout << "S:>client removed from the list!" << endl;
-								}
-							}
-							else
-								cout << "S:>fail to remove local player from list!" << endl;
-
-							cout << "\nS:> Refresh clients" << endl;
-							// refresh clients
-							char msgpingClients[20] = "ping_clients";
-							sockaddr_in send_addr;
-							send_addr.sin_family = AF_INET;
-							send_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-							send_addr.sin_addr.s_addr = inet_addr(SERVERADDR);
-							for (auto i = 49152; i <= 65535; i++)
-							{
-								send_addr.sin_port = htons(i);
-
-								sendto(sock, &msgpingClients[0], sizeof(msgpingClients)
-									, 0, (sockaddr*)&send_addr, sizeof(send_addr));
-							}
-
-							CountClients();
-						}
-						else if (matchClient == false && findPingStr != string::npos)// (match == false && std::strcmp(buff, "ping") == 0)
+					{						
+						if (matchLocal == false && findPingStr != string::npos)// (match == false && std::strcmp(buff, "ping") == 0)
 						{
 							//counter++;
 

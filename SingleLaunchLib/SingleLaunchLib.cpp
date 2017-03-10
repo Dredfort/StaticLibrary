@@ -32,6 +32,7 @@ bool bAcceptMessages = true;
 
 std::vector<string> netClients;
 std::vector<string> localClients;
+std::multimap<string, string> ipPortMap;
 static SOCKET server_sock, client_sock;
 
 sockaddr_in out_addr;
@@ -574,8 +575,7 @@ namespace SingleLaunch
 						cout << "S:>Server in net detected." << endl;
 						cout << "S:>Start closing server and thread." << endl;
 						cout << "-----------------------------------" << endl;
-
-						//TODO: close server and thread.
+						
 						serverBind = -1;
 						closesocket(server_sock);
 						ReleaseMutex(hMutex);
@@ -584,7 +584,7 @@ namespace SingleLaunch
 
 
 					//// NET PORTS.
-					if (senderName != hostName && // TODO:: объеденить закрытие локальных и серевых клиетнов.findClosed
+					if (senderName != hostName && 
 						(matchNet == false))
 					{
 
